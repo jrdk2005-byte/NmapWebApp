@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nmap Web Scanner</title>
+    <link href="/webjars/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #fff;
+        }
+        .card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        .card-header {
+            background: rgba(0, 0, 0, 0.3);
+            border-bottom: 2px solid #00d4ff;
+        }
+        .terminal {
+            background: #000;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            padding: 15px;
+            border-radius: 8px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+        .terminal::-webkit-scrollbar {
+            width: 10px;
+        }
+        .terminal::-webkit-scrollbar-track {
+            background: #1a1a1a;
+        }
+        .terminal::-webkit-scrollbar-thumb {
+            background: #00ff00;
+            border-radius: 5px;
+        }
+        .glow-button {
+            background: linear-gradient(135deg, #00d4ff, #0099ff);
+            border: none;
+            color: white;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 212, 255, 0.3);
+        }
+        .glow-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(0, 212, 255, 0.5);
+        }
+        .glow-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .result-table {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+        }
+        .result-table th {
+            color: #00d4ff;
+            border-bottom: 2px solid #00d4ff;
+        }
+        .result-table td {
+            color: #fff;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .status-badge {
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .status-open {
+            background: #00ff00;
+            color: #000;
+        }
+        .status-closed {
+            background: #ff4444;
+            color: #fff;
+        }
+        .status-filtered {
+            background: #ffaa00;
+            color: #000;
+        }
+        .progress {
+            height: 5px;
+            background: rgba(255, 255, 255, 0.1);
+        }
+        .progress-bar {
+            background: linear-gradient(90deg, #00d4ff, #0099ff);
+        }
+        .scanning-animation {
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="text-center mb-4">
+            <h1 class="display-4 fw-bold" style="background: linear-gradient(135deg, #00d4ff, #ff6b6b); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                <i class="fas fa-network-wired"></i> Nmap Web Scanner
+            </h1>
+            <p class="text-muted">Professional Port Scanner - Web Edition</p>
+        </div>
+
+        <!-- Main Card -->
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-sliders-h"></i> Scan Configuration
+            </div>
+            <div class="card-body">
+                <form id="scanForm">
+                    <!-- Target -->
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label"><i class="fas fa-crosshairs"></i> Target</label>
+                            <input type="text" class="form-control bg-dark text-light" id="target" 
+                                   value="127.0.0.1" placeholder="IP, domain, or range">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label"><i class="fas fa-tag"></i> Scan Type</label>
+                            <select class="form-select bg-dark text-light" id="scanType">
+                                <option value="quick">Quick Scan</option>
+                                <option value="full">Full Port Scan</option>
+                                <option value="service">Service Detection</option>
+                                <option value="os">OS Detection</option>
+                                <option value="network">Network Discovery</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label"><i class="fas fa-plug"></i> Ports</label>
+                            <input type="text" class="form-control bg-dark text-light" id="ports" 
+                                   value="22,80,443,631,3306,8080" placeholder="e.g., 22,80,443">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label"><i class="fas fa-cog"></i> Options</label>
+                            <input type="text" class="form-control bg-dark text-light" id="options" 
+                                   placeholder="-v -A">
+                        </div>
+                    </div>
+
+                    <!-- Buttons -->
+                    <div class="mt-4 text-center">
+                        <button type="submit" class="glow-button" id="scanBtn">
+                            <i class="fas fa-play"></i> Start Scan
+                        </button>
+                        <button type="button" class="btn btn-outline-danger ms-2" id="stopBtn" disabled>
+                            <i class="fas fa-stop"></i> Stop
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary ms-2" id="clearBtn">
+                            <i class="fas fa-eraser"></i> Clear
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Status -->
+        <div class="mt-3">
+            <div class="progress">
+                <div class="progress-bar" id="progressBar" style="width: 0%"></div>
+            </div>
+            <div class="d-flex justify-content-between mt-1">
+                <small id="statusText" class="text-muted">Ready</small>
+                <small id="scanIdDisplay" class="text-muted"></small>
+            </div>
+        </div>
+
+        <!-- Results -->
+        <div class="row mt-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-table"></i> Open Ports
+                        <span class="badge bg-success float-end" id="portCount">0</span>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table result-table table-hover mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Port</th>
+                                        <th>Protocol</th>
+                                        <th>State</th>
+                                        <th>Service</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="resultsBody">
+                                    <tr>
+                                        <td colspan="4" class="text-center text-muted">No results yet</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-terminal"></i> Live Output
+                        <button class="btn btn-sm btn-outline-secondary float-end" id="copyOutputBtn">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="terminal" id="outputTerminal">
+                            <span class="text-muted"># Nmap Web Scanner ready...</span><br>
+                            <span class="text-muted"># Enter target and click "Start Scan"</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="text-center mt-4 text-muted small">
+            <i class="fas fa-shield-alt"></i> Only scan systems you own or have permission to test
+        </div>
+    </div>
+
+    <script src="/webjars/jquery/3.6.4/jquery.min.js"></script>
+    <script src="/webjars/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let scanId = null;
+        let eventSource = null;
+        let isScanning = false;
+
+        // Handle scan submission
+        $('#scanForm').on('submit', function(e) {
+            e.preventDefault();
+            startScan();
+        });
+
+        function startScan() {
+            const target = $('#target').val().trim();
+            if (!target) {
+                alert('Please enter a target!');
+                return;
+            }
+
+            // Clear previous results
+            clearResults();
+
+            const data = {
+                target: target,
+                scanType: $('#scanType').val(),
+                ports: $('#ports').val(),
+                options: $('#options').val()
+            };
+
+            // Update UI
+            isScanning = true;
+            $('#scanBtn').prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Scanning...');
+            $('#stopBtn').prop('disabled', false);
+            $('#statusText').text('Scanning...').removeClass('text-muted').addClass('text-success');
+            $('#progressBar').css('width', '10%');
+
+            // Send scan request
+            $.post('/scan', data, function(response) {
+                scanId = response.scanId;
+                $('#scanIdDisplay').text('ID: ' + scanId.substring(0, 8));
+                connectToStream(scanId);
+            }).fail(function() {
+                alert('Error starting scan!');
+                resetUI();
+            });
+        }
+
+        function connectToStream(id) {
+            if (eventSource) {
+                eventSource.close();
+            }
+
+            eventSource = new EventSource('/stream/' + id);
+            
+            eventSource.onmessage = function(event) {
+                const data = event.data;
+                appendOutput(data);
+                
+                if (data.startsWith('SCAN_COMPLETE:')) {
+                    const exitCode = data.split(':')[1];
+                    $('#statusText').text('Scan complete (exit code: ' + exitCode + ')');
+                    $('#progressBar').css('width', '100%');
+                    resetUI();
+                    eventSource.close();
+                } else if (data.startsWith('ERROR:')) {
+                    $('#statusText').text('Error: ' + data);
+                    resetUI();
+                } else {
+                    // Update progress (estimate)
+                    const currentProgress = parseInt($('#progressBar').css('width')) || 0;
+                    if (currentProgress < 90) {
+                        $('#progressBar').css('width', (currentProgress + 5) + '%');
+                    }
+                }
+            };
+
+            eventSource.onerror = function() {
+                if (isScanning) {
+                    $('#statusText').text('Connection lost - but scan continues...');
+                }
+            };
+        }
+
+        function appendOutput(data) {
+            const terminal = $('#outputTerminal');
+            const lines = data.split('\n');
+            lines.forEach(line => {
+                if (line.startsWith('SCAN_COMPLETE:')) return;
+                if (line.startsWith('ERROR:')) {
+                    terminal.append('<span class="text-danger">' + line + '</span><br>');
+                } else if (line.includes('open')) {
+                    terminal.append('<span class="text-success">' + line + '</span><br>');
+                    parsePortLine(line);
+                } else {
+                    terminal.append('<span class="text-light">' + line + '</span><br>');
+                }
+            });
+            terminal.scrollTop(terminal[0].scrollHeight);
+        }
+
+        function parsePortLine(line) {
+            // Parse Nmap output for open ports
+            // Example: 22/tcp   open  ssh     OpenSSH 8.9
+            const parts = line.trim().split(/\s+/);
+            if (parts.length >= 2 && parts[1] === 'open') {
+                const portProto = parts[0].split('/');
+                const port = portProto[0];
+                const protocol = portProto[1] || 'tcp';
+                const service = parts[2] || '';
+                const version = parts.slice(3).join(' ') || '';
+                
+                addResult(port, protocol, 'open', service + ' ' + version);
+            }
+        }
+
+        function addResult(port, protocol, state, service) {
+            const tbody = $('#resultsBody');
+            // Check if already exists
+            let exists = false;
+            tbody.find('tr').each(function() {
+                if ($(this).find('td:first').text() === port && 
+                    $(this).find('td:nth-child(2)').text() === protocol) {
+                    exists = true;
+                    return false;
+                }
+            });
+
+            if (!exists) {
+                const stateClass = state === 'open' ? 'status-open' : 
+                                  (state === 'filtered' ? 'status-filtered' : 'status-closed');
+                const row = `<tr>
+                    <td><strong>${port}</strong></td>
+                    <td>${protocol}</td>
+                    <td><span class="status-badge ${stateClass}">${state}</span></td>
+                    <td>${service}</td>
+                </tr>`;
+                
+                if (tbody.find('tr td[colspan]').length > 0) {
+                    tbody.empty();
+                }
+                tbody.append(row);
+                $('#portCount').text(tbody.find('tr').length);
+            }
+        }
+
+        function clearResults() {
+            $('#resultsBody').html('<tr><td colspan="4" class="text-center text-muted">No results yet</td></tr>');
+            $('#outputTerminal').html('<span class="text-muted"># Nmap Web Scanner ready...</span><br>');
+            $('#portCount').text('0');
+            $('#progressBar').css('width', '0%');
+        }
+
+        function resetUI() {
+            isScanning = false;
+            $('#scanBtn').prop('disabled', false).html('<i class="fas fa-play"></i> Start Scan');
+            $('#stopBtn').prop('disabled', true);
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+            }
+        }
+
+        // Stop scan
+        $('#stopBtn').on('click', function() {
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+            }
+            $('#statusText').text('Scan stopped by user');
+            resetUI();
+        });
+
+        // Clear output
+        $('#clearBtn').on('click', function() {
+            clearResults();
+            $('#statusText').text('Cleared');
+        });
+
+        // Copy output
+        $('#copyOutputBtn').on('click', function() {
+            const text = $('#outputTerminal').text();
+            navigator.clipboard.writeText(text).then(() => {
+                alert('Output copied to clipboard!');
+            });
+        });
+
+        // Keyboard shortcuts
+        $(document).on('keydown', function(e) {
+            if (e.ctrlKey && e.key === 'Enter') {
+                $('#scanForm').submit();
+            }
+        });
+
+        // Auto-fill example targets
+        $('#target').on('focus', function() {
+            if ($(this).val() === '') {
+                $(this).val('127.0.0.1');
+            }
+        });
+    </script>
+</body>
+</html>
