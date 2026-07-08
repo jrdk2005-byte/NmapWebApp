@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Nmap Web Scanner</title>
-    <link href="/webjars/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
         body {
@@ -106,6 +106,45 @@
             0%, 100% { opacity: 1; }
             50% { opacity: 0.3; }
         }
+        .text-success {
+            color: #00ff00 !important;
+        }
+        .text-danger {
+            color: #ff4444 !important;
+        }
+        .text-warning {
+            color: #ffaa00 !important;
+        }
+        .text-info {
+            color: #00d4ff !important;
+        }
+        .text-primary {
+            color: #0099ff !important;
+        }
+        .form-control, .form-select {
+            background: rgba(0, 0, 0, 0.5) !important;
+            color: #fff !important;
+            border: 1px solid rgba(255, 255, 255, 0.2) !important;
+        }
+        .form-control:focus, .form-select:focus {
+            border-color: #00d4ff !important;
+            box-shadow: 0 0 0 0.2rem rgba(0, 212, 255, 0.25) !important;
+        }
+        .form-control::placeholder {
+            color: rgba(255, 255, 255, 0.4) !important;
+        }
+        .badge {
+            font-size: 14px;
+            padding: 8px 15px;
+        }
+        .btn-outline-secondary {
+            color: #fff;
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+        .btn-outline-secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: #fff;
+        }
     </style>
 </head>
 <body>
@@ -125,16 +164,15 @@
             </div>
             <div class="card-body">
                 <form id="scanForm">
-                    <!-- Target -->
                     <div class="row g-3">
                         <div class="col-md-4">
                             <label class="form-label"><i class="fas fa-crosshairs"></i> Target</label>
-                            <input type="text" class="form-control bg-dark text-light" id="target" 
+                            <input type="text" class="form-control" id="target" 
                                    value="127.0.0.1" placeholder="IP, domain, or range">
                         </div>
                         <div class="col-md-3">
                             <label class="form-label"><i class="fas fa-tag"></i> Scan Type</label>
-                            <select class="form-select bg-dark text-light" id="scanType">
+                            <select class="form-select" id="scanType">
                                 <option value="quick">Quick Scan</option>
                                 <option value="full">Full Port Scan</option>
                                 <option value="service">Service Detection</option>
@@ -144,17 +182,16 @@
                         </div>
                         <div class="col-md-3">
                             <label class="form-label"><i class="fas fa-plug"></i> Ports</label>
-                            <input type="text" class="form-control bg-dark text-light" id="ports" 
+                            <input type="text" class="form-control" id="ports" 
                                    value="22,80,443,631,3306,8080" placeholder="e.g., 22,80,443">
                         </div>
                         <div class="col-md-2">
                             <label class="form-label"><i class="fas fa-cog"></i> Options</label>
-                            <input type="text" class="form-control bg-dark text-light" id="options" 
+                            <input type="text" class="form-control" id="options" 
                                    placeholder="-v -A">
                         </div>
                     </div>
 
-                    <!-- Buttons -->
                     <div class="mt-4 text-center">
                         <button type="submit" class="glow-button" id="scanBtn">
                             <i class="fas fa-play"></i> Start Scan
@@ -164,6 +201,9 @@
                         </button>
                         <button type="button" class="btn btn-outline-secondary ms-2" id="clearBtn">
                             <i class="fas fa-eraser"></i> Clear
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary ms-2" id="copyOutputBtn">
+                            <i class="fas fa-copy"></i> Copy
                         </button>
                     </div>
                 </form>
@@ -214,9 +254,6 @@
                 <div class="card">
                     <div class="card-header">
                         <i class="fas fa-terminal"></i> Live Output
-                        <button class="btn btn-sm btn-outline-secondary float-end" id="copyOutputBtn">
-                            <i class="fas fa-copy"></i>
-                        </button>
                     </div>
                     <div class="card-body">
                         <div class="terminal" id="outputTerminal">
@@ -231,15 +268,19 @@
         <!-- Footer -->
         <div class="text-center mt-4 text-muted small">
             <i class="fas fa-shield-alt"></i> Only scan systems you own or have permission to test
+            <br>
+            <span class="text-muted">⌨️ Ctrl+Enter to scan | ESC to stop</span>
         </div>
     </div>
 
-    <script src="/webjars/jquery/3.6.4/jquery.min.js"></script>
-    <script src="/webjars/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         let scanId = null;
         let eventSource = null;
         let isScanning = false;
+        let reconnectAttempts = 0;
+        const MAX_RECONNECT_ATTEMPTS = 5;
 
         // Handle scan submission
         $('#scanForm').on('submit', function(e) {
@@ -254,8 +295,8 @@
                 return;
             }
 
-            // Clear previous results
             clearResults();
+            reconnectAttempts = 0;
 
             const data = {
                 target: target,
@@ -264,20 +305,25 @@
                 options: $('#options').val()
             };
 
-            // Update UI
             isScanning = true;
             $('#scanBtn').prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Scanning...');
             $('#stopBtn').prop('disabled', false);
-            $('#statusText').text('Scanning...').removeClass('text-muted').addClass('text-success');
-            $('#progressBar').css('width', '10%');
+            $('#statusText').text('⏳ Starting scan...').removeClass('text-muted').addClass('text-success');
+            $('#progressBar').css('width', '5%');
 
-            // Send scan request
             $.post('/scan', data, function(response) {
                 scanId = response.scanId;
                 $('#scanIdDisplay').text('ID: ' + scanId.substring(0, 8));
+                $('#statusText').text('🔍 Scanning ' + target + '...');
+                $('#progressBar').css('width', '15%');
                 connectToStream(scanId);
-            }).fail(function() {
-                alert('Error starting scan!');
+            }).fail(function(xhr) {
+                let errorMsg = 'Error starting scan!';
+                if (xhr.responseJSON && xhr.responseJSON.message) {
+                    errorMsg = xhr.responseJSON.message;
+                }
+                $('#statusText').text('❌ ' + errorMsg);
+                $('#outputTerminal').append('<span class="text-danger">❌ ' + errorMsg + '</span><br>');
                 resetUI();
             });
         }
@@ -289,31 +335,58 @@
 
             eventSource = new EventSource('/stream/' + id);
             
+            eventSource.onopen = function() {
+                $('#statusText').text('📡 Connected to scan stream...');
+                $('#progressBar').css('width', '20%');
+            };
+
             eventSource.onmessage = function(event) {
                 const data = event.data;
                 appendOutput(data);
                 
                 if (data.startsWith('SCAN_COMPLETE:')) {
                     const exitCode = data.split(':')[1];
-                    $('#statusText').text('Scan complete (exit code: ' + exitCode + ')');
+                    const openPorts = $('#resultsBody tr').length - 1;
+                    if (openPorts > 0) {
+                        $('#statusText').text('✅ Scan complete! Found ' + openPorts + ' open ports');
+                    } else {
+                        $('#statusText').text('✅ Scan complete! No open ports found');
+                    }
                     $('#progressBar').css('width', '100%');
                     resetUI();
                     eventSource.close();
+                    reconnectAttempts = 0;
                 } else if (data.startsWith('ERROR:')) {
-                    $('#statusText').text('Error: ' + data);
+                    const errorMsg = data.substring(6);
+                    $('#statusText').text('❌ Error: ' + errorMsg);
+                    $('#outputTerminal').append('<span class="text-danger">❌ ERROR: ' + errorMsg + '</span><br>');
                     resetUI();
-                } else {
-                    // Update progress (estimate)
-                    const currentProgress = parseInt($('#progressBar').css('width')) || 0;
-                    if (currentProgress < 90) {
-                        $('#progressBar').css('width', (currentProgress + 5) + '%');
-                    }
+                } else if (data.includes('open') && !data.includes('filtered')) {
+                    $('#statusText').text('🔓 Found open port!');
+                    parsePortLine(data);
+                    $('#progressBar').css('width', (parseInt($('#progressBar').css('width')) || 20) + 5 + '%');
+                } else if (data.includes('Completed')) {
+                    $('#statusText').text('✅ Scan completed!');
+                    $('#progressBar').css('width', '95%');
+                } else if (data.includes('Discovered')) {
+                    $('#statusText').text('📡 ' + data);
                 }
             };
 
             eventSource.onerror = function() {
                 if (isScanning) {
-                    $('#statusText').text('Connection lost - but scan continues...');
+                    reconnectAttempts++;
+                    if (reconnectAttempts <= MAX_RECONNECT_ATTEMPTS) {
+                        $('#statusText').text('🔄 Connection lost - reconnecting... (attempt ' + reconnectAttempts + ' of ' + MAX_RECONNECT_ATTEMPTS + ')');
+                        setTimeout(function() {
+                            if (isScanning && scanId) {
+                                connectToStream(scanId);
+                            }
+                        }, 3000);
+                    } else {
+                        $('#statusText').text('⚠️ Connection lost. Scan is still running in background. Check results shortly.');
+                        $('#outputTerminal').append('<span class="text-warning">⚠️ Connection lost. Scan continues in background...</span><br>');
+                    }
                 }
             };
         }
@@ -324,10 +397,16 @@
             lines.forEach(line => {
                 if (line.startsWith('SCAN_COMPLETE:')) return;
                 if (line.startsWith('ERROR:')) {
-                    terminal.append('<span class="text-danger">' + line + '</span><br>');
-                } else if (line.includes('open')) {
-                    terminal.append('<span class="text-success">' + line + '</span><br>');
+                    terminal.append('<span class="text-danger">❌ ' + line + '</span><br>');
+                } else if (line.includes('open') && !line.includes('filtered')) {
+                    terminal.append('<span class="text-success">✅ ' + line + '</span><br>');
                     parsePortLine(line);
+                } else if (line.includes('filtered')) {
+                    terminal.append('<span class="text-warning">⚠️ ' + line + '</span><br>');
+                } else if (line.includes('Completed')) {
+                    terminal.append('<span class="text-info">📊 ' + line + '</span><br>');
+                } else if (line.includes('Discovered')) {
+                    terminal.append('<span class="text-primary">📡 ' + line + '</span><br>');
                 } else {
                     terminal.append('<span class="text-light">' + line + '</span><br>');
                 }
@@ -336,23 +415,27 @@
         }
 
         function parsePortLine(line) {
-            // Parse Nmap output for open ports
-            // Example: 22/tcp   open  ssh     OpenSSH 8.9
-            const parts = line.trim().split(/\s+/);
-            if (parts.length >= 2 && parts[1] === 'open') {
-                const portProto = parts[0].split('/');
-                const port = portProto[0];
-                const protocol = portProto[1] || 'tcp';
-                const service = parts[2] || '';
-                const version = parts.slice(3).join(' ') || '';
-                
-                addResult(port, protocol, 'open', service + ' ' + version);
+            try {
+                const parts = line.trim().split(/\s+/);
+                if (parts.length >= 2) {
+                    const portProto = parts[0].split('/');
+                    const port = portProto[0];
+                    const protocol = portProto[1] || 'tcp';
+                    const state = parts[1] || 'unknown';
+                    const service = parts[2] || '';
+                    const version = parts.slice(3).join(' ') || '';
+                    
+                    if (state === 'open') {
+                        addResult(port, protocol, state, service + ' ' + version);
+                    }
+                }
+            } catch (e) {
+                console.log('Error parsing line:', line);
             }
         }
 
         function addResult(port, protocol, state, service) {
             const tbody = $('#resultsBody');
-            // Check if already exists
             let exists = false;
             tbody.find('tr').each(function() {
                 if ($(this).find('td:first').text() === port && 
@@ -369,7 +452,7 @@
                     <td><strong>${port}</strong></td>
                     <td>${protocol}</td>
                     <td><span class="status-badge ${stateClass}">${state}</span></td>
-                    <td>${service}</td>
+                    <td>${service || '-'}</td>
                 </tr>`;
                 
                 if (tbody.find('tr td[colspan]').length > 0) {
@@ -385,6 +468,7 @@
             $('#outputTerminal').html('<span class="text-muted"># Nmap Web Scanner ready...</span><br>');
             $('#portCount').text('0');
             $('#progressBar').css('width', '0%');
+            reconnectAttempts = 0;
         }
 
         function resetUI() {
@@ -403,20 +487,34 @@
                 eventSource.close();
                 eventSource = null;
             }
-            $('#statusText').text('Scan stopped by user');
+            $('#statusText').text('⏹️ Scan stopped by user');
+            $('#outputTerminal').append('<span class="text-warning">⏹️ Scan stopped by user</span><br>');
             resetUI();
         });
 
         // Clear output
         $('#clearBtn').on('click', function() {
             clearResults();
-            $('#statusText').text('Cleared');
+            $('#statusText').text('🗑️ Cleared all results');
         });
 
         // Copy output
         $('#copyOutputBtn').on('click', function() {
             const text = $('#outputTerminal').text();
             navigator.clipboard.writeText(text).then(() => {
+                $('#statusText').text('📋 Output copied to clipboard!');
+                setTimeout(() => {
+                    if (!isScanning) {
+                        $('#statusText').text('Ready');
+                    }
+                }, 2000);
+            }).catch(() => {
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
                 alert('Output copied to clipboard!');
             });
         });
@@ -424,7 +522,11 @@
         // Keyboard shortcuts
         $(document).on('keydown', function(e) {
             if (e.ctrlKey && e.key === 'Enter') {
+                e.preventDefault();
                 $('#scanForm').submit();
+            }
+            if (e.key === 'Escape' && isScanning) {
+                $('#stopBtn').click();
             }
         });
 
@@ -433,6 +535,13 @@
             if ($(this).val() === '') {
                 $(this).val('127.0.0.1');
             }
+        });
+
+        // Show help on load
+        $(document).ready(function() {
+            $('#outputTerminal').append('<span class="text-muted"># Press Ctrl+Enter to scan</span><br>');
+            $('#outputTerminal').append('<span class="text-muted"># Press Escape to stop scan</span><br>');
+            $('#outputTerminal').append('<span class="text-muted"># Enter target and click "Start Scan"</span><br>');
         });
     </script>
 </body>
