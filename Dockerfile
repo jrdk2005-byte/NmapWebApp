@@ -1,7 +1,7 @@
-FROM openjdk:17-jdk-slim
+FROM eclipse-temurin:17-jdk-alpine
 
 # Install Nmap
-RUN apt-get update && apt-get install -y nmap
+RUN apk add --no-cache nmap
 
 # Create app directory
 WORKDIR /app
