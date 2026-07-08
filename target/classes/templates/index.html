@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Nmap Web Scanner</title>
-    <link href="/webjars/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
         body {
@@ -99,12 +99,58 @@
         .progress-bar {
             background: linear-gradient(90deg, #00d4ff, #0099ff);
         }
-        .scanning-animation {
-            animation: pulse 1.5s ease-in-out infinite;
+        .text-success {
+            color: #00ff00 !important;
         }
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.3; }
+        .text-danger {
+            color: #ff4444 !important;
+        }
+        .text-warning {
+            color: #ffaa00 !important;
+        }
+        .text-info {
+            color: #00d4ff !important;
+        }
+        .text-primary {
+            color: #0099ff !important;
+        }
+        .form-control, .form-select {
+            background: rgba(0, 0, 0, 0.5) !important;
+            color: #fff !important;
+            border: 1px solid rgba(255, 255, 255, 0.2) !important;
+        }
+        .form-control:focus, .form-select:focus {
+            border-color: #00d4ff !important;
+            box-shadow: 0 0 0 0.2rem rgba(0, 212, 255, 0.25) !important;
+        }
+        .form-control::placeholder {
+            color: rgba(255, 255, 255, 0.4) !important;
+        }
+        .badge {
+            font-size: 14px;
+            padding: 8px 15px;
+        }
+        .btn-outline-secondary {
+            color: #fff;
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+        .btn-outline-secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: #fff;
+        }
+        .error-message {
+            background: rgba(255, 0, 0, 0.2);
+            border: 1px solid #ff4444;
+            border-radius: 8px;
+            padding: 10px 15px;
+            margin: 5px 0;
+        }
+        .success-message {
+            background: rgba(0, 255, 0, 0.1);
+            border: 1px solid #00ff00;
+            border-radius: 8px;
+            padding: 10px 15px;
+            margin: 5px 0;
         }
     </style>
 </head>
@@ -125,16 +171,15 @@
             </div>
             <div class="card-body">
                 <form id="scanForm">
-                    <!-- Target -->
                     <div class="row g-3">
                         <div class="col-md-4">
                             <label class="form-label"><i class="fas fa-crosshairs"></i> Target</label>
-                            <input type="text" class="form-control bg-dark text-light" id="target" 
+                            <input type="text" class="form-control" id="target" 
                                    value="127.0.0.1" placeholder="IP, domain, or range">
                         </div>
                         <div class="col-md-3">
                             <label class="form-label"><i class="fas fa-tag"></i> Scan Type</label>
-                            <select class="form-select bg-dark text-light" id="scanType">
+                            <select class="form-select" id="scanType">
                                 <option value="quick">Quick Scan</option>
                                 <option value="full">Full Port Scan</option>
                                 <option value="service">Service Detection</option>
@@ -144,17 +189,16 @@
                         </div>
                         <div class="col-md-3">
                             <label class="form-label"><i class="fas fa-plug"></i> Ports</label>
-                            <input type="text" class="form-control bg-dark text-light" id="ports" 
+                            <input type="text" class="form-control" id="ports" 
                                    value="22,80,443,631,3306,8080" placeholder="e.g., 22,80,443">
                         </div>
                         <div class="col-md-2">
                             <label class="form-label"><i class="fas fa-cog"></i> Options</label>
-                            <input type="text" class="form-control bg-dark text-light" id="options" 
+                            <input type="text" class="form-control" id="options" 
                                    placeholder="-v -A">
                         </div>
                     </div>
 
-                    <!-- Buttons -->
                     <div class="mt-4 text-center">
                         <button type="submit" class="glow-button" id="scanBtn">
                             <i class="fas fa-play"></i> Start Scan
@@ -164,6 +208,9 @@
                         </button>
                         <button type="button" class="btn btn-outline-secondary ms-2" id="clearBtn">
                             <i class="fas fa-eraser"></i> Clear
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary ms-2" id="copyOutputBtn">
+                            <i class="fas fa-copy"></i> Copy
                         </button>
                     </div>
                 </form>
@@ -214,9 +261,6 @@
                 <div class="card">
                     <div class="card-header">
                         <i class="fas fa-terminal"></i> Live Output
-                        <button class="btn btn-sm btn-outline-secondary float-end" id="copyOutputBtn">
-                            <i class="fas fa-copy"></i>
-                        </button>
                     </div>
                     <div class="card-body">
                         <div class="terminal" id="outputTerminal">
@@ -231,17 +275,39 @@
         <!-- Footer -->
         <div class="text-center mt-4 text-muted small">
             <i class="fas fa-shield-alt"></i> Only scan systems you own or have permission to test
+            <br>
+            <span class="text-muted">⌨️ Ctrl+Enter to scan | ESC to stop</span>
         </div>
     </div>
 
-    <script src="/webjars/jquery/3.6.4/jquery.min.js"></script>
-    <script src="/webjars/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // ============================================================
+        // FIX 6: COMPLETE JAVASCRIPT WITH IMPROVED ERROR HANDLING
+        // ============================================================
+        
+        // State variables
         let scanId = null;
         let eventSource = null;
         let isScanning = false;
+        let reconnectAttempts = 0;
+        const MAX_RECONNECT_ATTEMPTS = 5;
+        let scanStartTime = null;
+        let resultsCount = 0;
 
-        // Handle scan submission
+        // DOM ready
+        $(document).ready(function() {
+            // Show help in terminal
+            appendOutput('# Nmap Web Scanner ready...', 'muted');
+            appendOutput('# Press Ctrl+Enter to scan', 'muted');
+            appendOutput('# Press Escape to stop scan', 'muted');
+            appendOutput('# Enter target and click "Start Scan"', 'muted');
+        });
+
+        // ============================================================
+        // SCAN SUBMISSION
+        // ============================================================
         $('#scanForm').on('submit', function(e) {
             e.preventDefault();
             startScan();
@@ -249,13 +315,23 @@
 
         function startScan() {
             const target = $('#target').val().trim();
+            
+            // Validate target
             if (!target) {
-                alert('Please enter a target!');
+                showError('Please enter a target!');
+                return;
+            }
+
+            // Validate target format
+            if (!isValidTarget(target)) {
+                showError('Invalid target format! Please enter a valid IP, domain, or range.');
                 return;
             }
 
             // Clear previous results
             clearResults();
+            reconnectAttempts = 0;
+            resultsCount = 0;
 
             const data = {
                 target: target,
@@ -266,93 +342,243 @@
 
             // Update UI
             isScanning = true;
+            scanStartTime = new Date();
             $('#scanBtn').prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Scanning...');
             $('#stopBtn').prop('disabled', false);
-            $('#statusText').text('Scanning...').removeClass('text-muted').addClass('text-success');
-            $('#progressBar').css('width', '10%');
+            updateStatus('⏳ Starting scan...', 'success');
+            $('#progressBar').css('width', '5%');
+            
+            appendOutput('🚀 Starting scan: ' + target, 'info');
 
             // Send scan request
-            $.post('/scan', data, function(response) {
-                scanId = response.scanId;
-                $('#scanIdDisplay').text('ID: ' + scanId.substring(0, 8));
-                connectToStream(scanId);
-            }).fail(function() {
-                alert('Error starting scan!');
-                resetUI();
+            $.ajax({
+                url: '/scan',
+                type: 'POST',
+                data: data,
+                dataType: 'json',
+                timeout: 30000, // 30 seconds timeout
+                success: function(response) {
+                    scanId = response.scanId;
+                    $('#scanIdDisplay').text('ID: ' + scanId.substring(0, 8));
+                    updateStatus('🔍 Scanning ' + target + '...', 'success');
+                    $('#progressBar').css('width', '15%');
+                    appendOutput('📡 Scan ID: ' + scanId, 'primary');
+                    connectToStream(scanId);
+                },
+                error: function(xhr, status, error) {
+                    let errorMsg = 'Error starting scan!';
+                    
+                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                        errorMsg = xhr.responseJSON.message;
+                    } else if (status === 'timeout') {
+                        errorMsg = 'Request timed out. Server may be busy.';
+                    } else if (status === 'parsererror') {
+                        errorMsg = 'Invalid response from server.';
+                    } else if (error) {
+                        errorMsg = error;
+                    }
+                    
+                    showError(errorMsg);
+                    appendOutput('❌ ERROR: ' + errorMsg, 'danger');
+                    resetUI();
+                }
             });
         }
 
+        // ============================================================
+        // TARGET VALIDATION (FIX 6)
+        // ============================================================
+        function isValidTarget(target) {
+            // IP address pattern
+            const ipPattern = /^(\d{1,3}\.){3}\d{1,3}$/;
+            // Domain pattern
+            const domainPattern = /^[a-zA-Z0-9][a-zA-Z0-9-]{1,61}[a-zA-Z0-9](?:\.[a-zA-Z]{2,})+$/;
+            // IP range pattern (e.g., 192.168.1.1-50)
+            const rangePattern = /^(\d{1,3}\.){3}\d{1,3}-\d{1,3}$/;
+            // CIDR pattern (e.g., 192.168.1.0/24)
+            const cidrPattern = /^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/;
+            // Hostname with port
+            const hostPortPattern = /^[a-zA-Z0-9][a-zA-Z0-9-]*\.[a-zA-Z]{2,}(:\d+)?$/;
+            
+            return ipPattern.test(target) || 
+                   domainPattern.test(target) || 
+                   rangePattern.test(target) || 
+                   cidrPattern.test(target) ||
+                   hostPortPattern.test(target) ||
+                   target === 'localhost';
+        }
+
+        // ============================================================
+        // STREAM CONNECTION (FIX 6 - Better Error Handling)
+        // ============================================================
         function connectToStream(id) {
             if (eventSource) {
                 eventSource.close();
+                eventSource = null;
             }
 
-            eventSource = new EventSource('/stream/' + id);
-            
-            eventSource.onmessage = function(event) {
-                const data = event.data;
-                appendOutput(data);
+            try {
+                eventSource = new EventSource('/stream/' + id);
                 
-                if (data.startsWith('SCAN_COMPLETE:')) {
-                    const exitCode = data.split(':')[1];
-                    $('#statusText').text('Scan complete (exit code: ' + exitCode + ')');
-                    $('#progressBar').css('width', '100%');
-                    resetUI();
-                    eventSource.close();
-                } else if (data.startsWith('ERROR:')) {
-                    $('#statusText').text('Error: ' + data);
-                    resetUI();
-                } else {
-                    // Update progress (estimate)
-                    const currentProgress = parseInt($('#progressBar').css('width')) || 0;
-                    if (currentProgress < 90) {
-                        $('#progressBar').css('width', (currentProgress + 5) + '%');
-                    }
-                }
-            };
+                eventSource.onopen = function() {
+                    updateStatus('📡 Connected to scan stream...', 'success');
+                    $('#progressBar').css('width', '20%');
+                    appendOutput('✅ Connected to stream', 'success');
+                };
 
-            eventSource.onerror = function() {
-                if (isScanning) {
-                    $('#statusText').text('Connection lost - but scan continues...');
-                }
-            };
+                eventSource.onmessage = function(event) {
+                    const data = event.data;
+                    handleStreamData(data);
+                };
+
+                eventSource.onerror = function(event) {
+                    // Check if it's an error event with data
+                    if (event.data) {
+                        handleStreamData(event.data);
+                        return;
+                    }
+                    
+                    // Connection error handling (FIX 6)
+                    if (isScanning && eventSource.readyState !== EventSource.CLOSED) {
+                        reconnectAttempts++;
+                        if (reconnectAttempts <= MAX_RECONNECT_ATTEMPTS) {
+                            updateStatus('🔄 Connection lost - reconnecting... (attempt ' + reconnectAttempts + ' of ' + MAX_RECONNECT_ATTEMPTS + ')', 'warning');
+                            appendOutput('⚠️ Connection lost. Reconnecting...', 'warning');
+                            setTimeout(function() {
+                                if (isScanning && scanId) {
+                                    connectToStream(scanId);
+                                }
+                            }, 3000);
+                        } else {
+                            updateStatus('⚠️ Connection lost. Scan continues in background.', 'warning');
+                            appendOutput('⚠️ Max reconnection attempts reached. Scan continues in background.', 'warning');
+                        }
+                    } else if (!isScanning) {
+                        // Connection closed normally
+                        if (eventSource) {
+                            eventSource.close();
+                            eventSource = null;
+                        }
+                    }
+                };
+
+            } catch (error) {
+                showError('Failed to connect to stream: ' + error.message);
+                appendOutput('❌ Stream connection error: ' + error.message, 'danger');
+                resetUI();
+            }
         }
 
-        function appendOutput(data) {
-            const terminal = $('#outputTerminal');
-            const lines = data.split('\n');
-            lines.forEach(line => {
-                if (line.startsWith('SCAN_COMPLETE:')) return;
-                if (line.startsWith('ERROR:')) {
-                    terminal.append('<span class="text-danger">' + line + '</span><br>');
-                } else if (line.includes('open')) {
-                    terminal.append('<span class="text-success">' + line + '</span><br>');
-                    parsePortLine(line);
-                } else {
-                    terminal.append('<span class="text-light">' + line + '</span><br>');
+        // ============================================================
+        // HANDLE STREAM DATA (FIX 6)
+        // ============================================================
+        function handleStreamData(data) {
+            appendOutput(data, 'info');
+            
+            try {
+                if (data.startsWith('SCAN_COMPLETE:')) {
+                    const exitCode = data.split(':')[1];
+                    const openPorts = $('#resultsBody tr').length - 1;
+                    const elapsed = Math.round((new Date() - scanStartTime) / 1000);
+                    
+                    if (openPorts > 0) {
+                        updateStatus('✅ Scan complete! Found ' + openPorts + ' open ports in ' + elapsed + 's', 'success');
+                        appendOutput('📊 Scan completed in ' + elapsed + ' seconds', 'success');
+                    } else if (exitCode === 'timeout') {
+                        updateStatus('⏰ Scan timed out after 5 minutes', 'warning');
+                        appendOutput('⏰ Scan timed out. Try using Quick Scan for faster results.', 'warning');
+                    } else {
+                        updateStatus('✅ Scan complete! No open ports found', 'success');
+                        appendOutput('📊 No open ports found', 'info');
+                    }
+                    
+                    $('#progressBar').css('width', '100%');
+                    resetUI();
+                    if (eventSource) {
+                        eventSource.close();
+                        eventSource = null;
+                    }
+                    
+                } else if (data.startsWith('ERROR:')) {
+                    const errorMsg = data.substring(6);
+                    showError(errorMsg);
+                    appendOutput('❌ ERROR: ' + errorMsg, 'danger');
+                    resetUI();
+                    
+                } else if (data.includes('open') && !data.includes('filtered')) {
+                    updateStatus('🔓 Found open port!', 'success');
+                    parsePortLine(data);
+                    const progress = Math.min(30 + (resultsCount * 5), 95);
+                    $('#progressBar').css('width', progress + '%');
+                    
+                } else if (data.includes('filtered')) {
+                    appendOutput('⚠️ ' + data, 'warning');
+                    
+                } else if (data.includes('Completed')) {
+                    updateStatus('✅ Scan completed!', 'success');
+                    $('#progressBar').css('width', '95%');
+                    appendOutput('📊 ' + data, 'info');
+                    
+                } else if (data.includes('Discovered')) {
+                    appendOutput('📡 ' + data, 'primary');
+                    
+                } else if (data.includes('Nmap') && data.includes('scan')) {
+                    appendOutput('🔍 ' + data, 'primary');
                 }
-            });
+                
+            } catch (error) {
+                console.error('Error handling stream data:', error);
+                appendOutput('⚠️ Error parsing data: ' + error.message, 'warning');
+            }
+        }
+
+        // ============================================================
+        // OUTPUT DISPLAY (FIX 6)
+        // ============================================================
+        function appendOutput(text, type) {
+            const terminal = $('#outputTerminal');
+            const types = {
+                'success': 'text-success',
+                'danger': 'text-danger',
+                'warning': 'text-warning',
+                'info': 'text-info',
+                'primary': 'text-primary',
+                'muted': 'text-muted',
+                'light': 'text-light'
+            };
+            
+            const className = types[type] || 'text-light';
+            terminal.append('<span class="' + className + '">' + text + '</span><br>');
             terminal.scrollTop(terminal[0].scrollHeight);
         }
 
+        // ============================================================
+        // PARSE PORT LINE (FIX 6)
+        // ============================================================
         function parsePortLine(line) {
-            // Parse Nmap output for open ports
-            // Example: 22/tcp   open  ssh     OpenSSH 8.9
-            const parts = line.trim().split(/\s+/);
-            if (parts.length >= 2 && parts[1] === 'open') {
-                const portProto = parts[0].split('/');
-                const port = portProto[0];
-                const protocol = portProto[1] || 'tcp';
-                const service = parts[2] || '';
-                const version = parts.slice(3).join(' ') || '';
-                
-                addResult(port, protocol, 'open', service + ' ' + version);
+            try {
+                const parts = line.trim().split(/\s+/);
+                if (parts.length >= 2) {
+                    const portProto = parts[0].split('/');
+                    const port = portProto[0];
+                    const protocol = portProto[1] || 'tcp';
+                    const state = parts[1] || 'unknown';
+                    const service = parts[2] || '';
+                    const version = parts.slice(3).join(' ') || '';
+                    
+                    if (state === 'open') {
+                        resultsCount++;
+                        addResult(port, protocol, state, service + ' ' + version);
+                        appendOutput('✅ Found open port: ' + port + '/' + protocol + ' (' + service + ')', 'success');
+                    }
+                }
+            } catch (e) {
+                console.warn('Error parsing line:', line, e);
             }
         }
 
         function addResult(port, protocol, state, service) {
             const tbody = $('#resultsBody');
-            // Check if already exists
             let exists = false;
             tbody.find('tr').each(function() {
                 if ($(this).find('td:first').text() === port && 
@@ -369,7 +595,7 @@
                     <td><strong>${port}</strong></td>
                     <td>${protocol}</td>
                     <td><span class="status-badge ${stateClass}">${state}</span></td>
-                    <td>${service}</td>
+                    <td>${service || '-'}</td>
                 </tr>`;
                 
                 if (tbody.find('tr td[colspan]').length > 0) {
@@ -380,11 +606,33 @@
             }
         }
 
+        // ============================================================
+        // UI HELPER FUNCTIONS (FIX 6)
+        // ============================================================
+        function updateStatus(message, type) {
+            const statusText = $('#statusText');
+            statusText.text(message);
+            statusText.removeClass('text-muted text-success text-danger text-warning');
+            if (type) {
+                statusText.addClass('text-' + type);
+            }
+        }
+
+        function showError(message) {
+            updateStatus('❌ ' + message, 'danger');
+            $('#outputTerminal').append('<div class="error-message">❌ ERROR: ' + message + '</div>');
+            $('#outputTerminal').scrollTop($('#outputTerminal')[0].scrollHeight);
+        }
+
         function clearResults() {
             $('#resultsBody').html('<tr><td colspan="4" class="text-center text-muted">No results yet</td></tr>');
-            $('#outputTerminal').html('<span class="text-muted"># Nmap Web Scanner ready...</span><br>');
+            $('#outputTerminal').html('');
             $('#portCount').text('0');
             $('#progressBar').css('width', '0%');
+            resultsCount = 0;
+            reconnectAttempts = 0;
+            appendOutput('# Nmap Web Scanner ready...', 'muted');
+            appendOutput('# Enter target and click "Start Scan"', 'muted');
         }
 
         function resetUI() {
@@ -395,45 +643,151 @@
                 eventSource.close();
                 eventSource = null;
             }
+            scanStartTime = null;
         }
 
-        // Stop scan
+        // ============================================================
+        // BUTTON HANDLERS
+        // ============================================================
         $('#stopBtn').on('click', function() {
             if (eventSource) {
                 eventSource.close();
                 eventSource = null;
             }
-            $('#statusText').text('Scan stopped by user');
+            updateStatus('⏹️ Scan stopped by user', 'warning');
+            appendOutput('⏹️ Scan stopped by user', 'warning');
             resetUI();
         });
 
-        // Clear output
         $('#clearBtn').on('click', function() {
             clearResults();
-            $('#statusText').text('Cleared');
+            updateStatus('🗑️ Cleared all results', 'muted');
         });
 
-        // Copy output
         $('#copyOutputBtn').on('click', function() {
             const text = $('#outputTerminal').text();
-            navigator.clipboard.writeText(text).then(() => {
-                alert('Output copied to clipboard!');
-            });
-        });
-
-        // Keyboard shortcuts
-        $(document).on('keydown', function(e) {
-            if (e.ctrlKey && e.key === 'Enter') {
-                $('#scanForm').submit();
+            if (!text || text === '# Nmap Web Scanner ready...') {
+                alert('No output to copy!');
+                return;
+            }
+            
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(() => {
+                    updateStatus('📋 Output copied to clipboard!', 'success');
+                    setTimeout(() => {
+                        if (!isScanning) {
+                            updateStatus('Ready', 'muted');
+                        }
+                    }, 2000);
+                }).catch(() => {
+                    fallbackCopy(text);
+                });
+            } else {
+                fallbackCopy(text);
             }
         });
 
-        // Auto-fill example targets
+        function fallbackCopy(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+            alert('Output copied to clipboard!');
+        }
+
+        // ============================================================
+        // KEYBOARD SHORTCUTS
+        // ============================================================
+        $(document).on('keydown', function(e) {
+            if (e.ctrlKey && e.key === 'Enter') {
+                e.preventDefault();
+                $('#scanForm').submit();
+            }
+            if (e.key === 'Escape' && isScanning) {
+                e.preventDefault();
+                $('#stopBtn').click();
+            }
+        });
+
+        // ============================================================
+        // AUTO-FILL
+        // ============================================================
         $('#target').on('focus', function() {
             if ($(this).val() === '') {
                 $(this).val('127.0.0.1');
             }
         });
+
+        // ============================================================
+        // POLLING FALLBACK (FIX 6 - If SSE fails)
+        // ============================================================
+        let pollInterval = null;
+
+        function startPolling(scanId) {
+            if (pollInterval) {
+                clearInterval(pollInterval);
+            }
+            
+            pollInterval = setInterval(function() {
+                $.get('/status/' + scanId, function(data) {
+                    if (data.status === 'complete' || data.status === 'error' || data.status === 'timeout') {
+                        clearInterval(pollInterval);
+                        pollInterval = null;
+                        
+                        if (data.results && data.results.length > 0) {
+                            data.results.forEach(function(line) {
+                                handleStreamData(line);
+                            });
+                        }
+                        
+                        if (data.status === 'complete') {
+                            updateStatus('✅ Scan complete!', 'success');
+                        } else if (data.status === 'timeout') {
+                            updateStatus('⏰ Scan timed out', 'warning');
+                        } else {
+                            updateStatus('❌ Scan failed', 'danger');
+                        }
+                        
+                        resetUI();
+                    }
+                }).fail(function() {
+                    // Continue polling
+                });
+            }, 2000); // Poll every 2 seconds
+            
+            // Stop polling after 10 minutes
+            setTimeout(function() {
+                if (pollInterval) {
+                    clearInterval(pollInterval);
+                    pollInterval = null;
+                }
+            }, 600000);
+        }
+
+        // Override connectToStream to include polling fallback
+        const originalConnect = connectToStream;
+        connectToStream = function(id) {
+            // Try SSE first
+            try {
+                originalConnect(id);
+                
+                // Start polling as fallback (just in case)
+                setTimeout(function() {
+                    if (isScanning && !eventSource) {
+                        startPolling(id);
+                    }
+                }, 5000);
+                
+            } catch (e) {
+                // SSE failed, use polling
+                appendOutput('⚠️ SSE not available, using polling...', 'warning');
+                startPolling(id);
+            }
+        };
     </script>
 </body>
 </html>
